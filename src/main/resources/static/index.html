@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rookloom</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1 class="logo">Rookloom</h1>
+        <div style="opacity:.75;font-size:12px;margin-top:2px">A Java 17 chess engine</div>
+      </div>
+      <div class="controls">
+        <button id="newGameBtn">New Game</button>
+        <button id="undoBtn">Undo</button>
+        <button id="engineMoveBtn">Engine Move</button>
+        <label class="inline">
+          <input id="autoEngineChk" type="checkbox" checked /> Auto engine move
+        </label>
+        <label>
+          Human plays
+          <select id="humanColorSel">
+            <option value="WHITE" selected>White</option>
+            <option value="BLACK">Black</option>
+          </select>
+        </label>
+        <label>
+          Depth
+          <input id="depthInput" type="number" min="1" max="12" value="4" />
+        </label>
+        <label>
+          Time (ms)
+          <input id="timeInput" type="number" min="100" step="100" value="3000" />
+        </label>
+      </div>
+    </header>
+
+    <main>
+      <div class="left">
+        <div id="board" class="board"></div>
+      </div>
+      <div class="right">
+        <div class="panel">
+          <h3>Game Info</h3>
+          <div><b>Game ID:</b> <span id="gameId"></span></div>
+          <div><b>Side to move:</b> <span id="sideToMove"></span></div>
+          <div><b>Check:</b> <span id="inCheck"></span></div>
+          <div><b>Status:</b> <span id="status"></span></div>
+          <div>
+            <b>FEN:</b>
+            <pre id="fen" class="fen"></pre>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Moves</h3>
+          <div id="moves" class="moves"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>

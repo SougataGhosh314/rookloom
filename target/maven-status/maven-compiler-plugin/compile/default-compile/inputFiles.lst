@@ -1,0 +1,13 @@
+E:\code\chess-engine\src\main\java\com\chessengine\model\PieceType.java
+E:\code\chess-engine\src\main\java\com\chessengine\service\GameService.java
+E:\code\chess-engine\src\main\java\com\chessengine\controller\ChessController.java
+E:\code\chess-engine\src\main\java\com\chessengine\model\Move.java
+E:\code\chess-engine\src\main\java\com\chessengine\engine\ChessEngine.java
+E:\code\chess-engine\src\main\java\com\chessengine\ChessEngineApplication.java
+E:\code\chess-engine\src\main\java\com\chessengine\engine\MoveGenerator.java
+E:\code\chess-engine\src\main\java\com\chessengine\engine\Evaluator.java
+E:\code\chess-engine\src\main\java\com\chessengine\model\PieceColor.java
+E:\code\chess-engine\src\main\java\com\chessengine\model\Square.java
+E:\code\chess-engine\src\main\java\com\chessengine\model\Board.java
+E:\code\chess-engine\src\main\java\com\chessengine\engine\MoveOrderer.java
+E:\code\chess-engine\src\main\java\com\chessengine\model\Piece.java
