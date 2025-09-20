@@ -9,32 +9,37 @@
 <body>
   <div class="container">
     <header>
-      <div>
+      <div class="brand">
         <h1 class="logo">Rookloom</h1>
-        <div style="opacity:.75;font-size:12px;margin-top:2px">A Java 17 chess engine</div>
+        <div class="tagline">A Java 17 chess engine</div>
       </div>
       <div class="controls">
-        <button id="newGameBtn">New Game</button>
-        <button id="undoBtn">Undo</button>
-        <button id="engineMoveBtn">Engine Move</button>
-        <label class="inline">
-          <input id="autoEngineChk" type="checkbox" checked /> Auto engine move
-        </label>
-        <label>
-          Human plays
-          <select id="humanColorSel">
-            <option value="WHITE" selected>White</option>
-            <option value="BLACK">Black</option>
-          </select>
-        </label>
-        <label>
-          Depth
-          <input id="depthInput" type="number" min="1" max="12" value="4" />
-        </label>
-        <label>
-          Time (ms)
-          <input id="timeInput" type="number" min="100" step="100" value="3000" />
-        </label>
+        <div class="controls-left">
+          <button id="newGameBtn">New Game</button>
+          <button id="undoBtn">Undo</button>
+          <button id="engineMoveBtn">Engine Move</button>
+        </div>
+        <div class="controls-right">
+          <label class="check">
+            <input id="autoEngineChk" type="checkbox" checked />
+            <span>Auto engine move</span>
+          </label>
+          <label class="field">
+            <span>Human</span>
+            <select id="humanColorSel">
+              <option value="WHITE" selected>White</option>
+              <option value="BLACK">Black</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Depth</span>
+            <input id="depthInput" type="number" min="1" max="12" value="4" />
+          </label>
+          <label class="field">
+            <span>Time (ms)</span>
+            <input id="timeInput" type="number" min="100" step="100" value="3000" />
+          </label>
+        </div>
       </div>
     </header>
 
@@ -61,7 +66,18 @@
       </div>
     </main>
   </div>
-
+  <footer class="footer">
+    <div class="footer-inner">
+      <div>© 2025 Rookloom</div>
+      <div class="links">
+        <a href="https://localhost:8080/api/" onclick="return false;">App</a>
+        <span>·</span>
+        <a href="#" onclick="alert('See project README and LICENSE in repository.');return false;">About</a>
+        <span>·</span>
+        <a href="#" onclick="alert('Apache-2.0 License');return false;">License</a>
+      </div>
+    </div>
+  </footer>
   <script src="main.js"></script>
 </body>
 </html>

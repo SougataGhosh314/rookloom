@@ -1,8 +1,10 @@
 E:\code\chess-engine\src\main\java\com\chessengine\model\PieceType.java
+E:\code\chess-engine\src\main\java\com\chessengine\engine\TranspositionTable.java
 E:\code\chess-engine\src\main\java\com\chessengine\service\GameService.java
 E:\code\chess-engine\src\main\java\com\chessengine\controller\ChessController.java
 E:\code\chess-engine\src\main\java\com\chessengine\model\Move.java
 E:\code\chess-engine\src\main\java\com\chessengine\engine\ChessEngine.java
+E:\code\chess-engine\src\main\java\com\chessengine\engine\Zobrist.java
 E:\code\chess-engine\src\main\java\com\chessengine\ChessEngineApplication.java
 E:\code\chess-engine\src\main\java\com\chessengine\engine\MoveGenerator.java
 E:\code\chess-engine\src\main\java\com\chessengine\engine\Evaluator.java

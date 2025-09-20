@@ -86,16 +86,26 @@ public class Evaluator {
     };
 
     public static int evaluate(Board board) {
-        int score = 0;
-        
-        // Material and positional evaluation
-        score += evaluateMaterial(board);
-        score += evaluatePosition(board);
-        score += evaluateKingSafety(board);
-        score += evaluatePawnStructure(board);
-        score += evaluateMobility(board);
-        
-        // Return score from the perspective of the side to move
+        // Tapered evaluation: interpolate middlegame and endgame scores by phase
+        int phase = gamePhase(board); // 0 .. 24
+        int mgScore = 0;
+        int egScore = 0;
+
+        // Material and positional evaluation (we reuse same helpers; some use isEndGame internally)
+        // Treat evaluatePosition twice with different king tables already handled by isEndGame, so
+        // we approximate tapered by mixing generic terms linearly with phase as a light-weight approach.
+        int basePosition = evaluatePosition(board);
+        int kingSafety = evaluateKingSafety(board);
+        int pawnStructure = evaluatePawnStructure(board);
+        int mobility = evaluateMobility(board);
+        int material = evaluateMaterial(board);
+        int extras = evaluateExtras(board); // bishop pair, rooks files, passed pawns
+
+        // Assign heavier weight to material in endgame slightly
+        mgScore = material + basePosition + kingSafety + pawnStructure + mobility + extras;
+        egScore = (int)(material * 1.1) + basePosition + (int)(pawnStructure * 1.05) + (int)(mobility * 0.7) + extras;
+
+        int score = (mgScore * phase + egScore * (24 - phase)) / 24;
         return board.getSideToMove() == PieceColor.WHITE ? score : -score;
     }
 
@@ -111,6 +121,92 @@ public class Evaluator {
         }
         
         return score;
+    }
+
+    // Small extras: bishop pair, rook on open/semi-open file, simple passed pawn bonus
+    private static int evaluateExtras(Board board) {
+        int score = 0;
+        boolean whiteLight = false, whiteDark = false, blackLight = false, blackDark = false;
+        int[] whitePawnsPerFile = new int[8];
+        int[] blackPawnsPerFile = new int[8];
+
+        // First pass: count pawns per file and detect bishops
+        for (int idx = 0; idx < 64; idx++) {
+            Square sq = Square.fromIndex(idx);
+            Piece p = board.getPiece(sq);
+            if (p.isEmpty()) continue;
+            if (p.getType() == PieceType.BISHOP) {
+                boolean light = (sq.getFile() + sq.getRank()) % 2 == 0;
+                if (p.isWhite()) { if (light) whiteLight = true; else whiteDark = true; }
+                else { if (light) blackLight = true; else blackDark = true; }
+            }
+            if (p.getType() == PieceType.PAWN) {
+                if (p.isWhite()) whitePawnsPerFile[sq.getFile()]++;
+                else blackPawnsPerFile[sq.getFile()]++;
+            }
+        }
+
+        // Bishop pair bonus
+        if (whiteLight && whiteDark) score += 30;
+        if (blackLight && blackDark) score -= 30;
+
+        // Rooks on open/semi-open files and passed pawns
+        for (int idx = 0; idx < 64; idx++) {
+            Square sq = Square.fromIndex(idx);
+            Piece p = board.getPiece(sq);
+            if (p.isEmpty()) continue;
+            if (p.getType() == PieceType.ROOK) {
+                int file = sq.getFile();
+                boolean openForWhite = whitePawnsPerFile[file] == 0;
+                boolean openForBlack = blackPawnsPerFile[file] == 0;
+                if (p.isWhite()) {
+                    if (openForWhite && openForBlack) score += 15; // open file
+                    else if (openForBlack) score += 7; // semi-open
+                } else {
+                    if (openForWhite && openForBlack) score -= 15;
+                    else if (openForWhite) score -= 7;
+                }
+            } else if (p.getType() == PieceType.PAWN) {
+                int file = sq.getFile();
+                boolean passed;
+                if (p.isWhite()) {
+                    passed = (blackPawnsPerFile[file] == 0) &&
+                             (file == 0 || blackPawnsPerFile[file - 1] == 0) &&
+                             (file == 7 || blackPawnsPerFile[file + 1] == 0);
+                    if (passed) {
+                        int bonus = 20 + sq.getRank() * 2; // more advanced, larger bonus
+                        score += bonus;
+                    }
+                } else { // black pawn
+                    passed = (whitePawnsPerFile[file] == 0) &&
+                             (file == 0 || whitePawnsPerFile[file - 1] == 0) &&
+                             (file == 7 || whitePawnsPerFile[file + 1] == 0);
+                    if (passed) {
+                        int bonus = 20 + (7 - sq.getRank()) * 2;
+                        score -= bonus;
+                    }
+                }
+            }
+        }
+        return score;
+    }
+
+    // Compute game phase (0..24) using material as proxy (queens/rooks/bishops/knights)
+    private static int gamePhase(Board board) {
+        int phase = 0;
+        for (int idx = 0; idx < 64; idx++) {
+            Piece p = board.getPiece(Square.fromIndex(idx));
+            if (p.isEmpty()) continue;
+            switch (p.getType()) {
+                case KNIGHT, BISHOP -> phase += 1;
+                case ROOK -> phase += 2;
+                case QUEEN -> phase += 4;
+                default -> {}
+            }
+        }
+        // Clamp to 24
+        if (phase > 24) phase = 24;
+        return phase;
     }
 
     private static int evaluatePosition(Board board) {

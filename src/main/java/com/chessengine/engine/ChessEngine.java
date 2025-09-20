@@ -2,7 +2,6 @@ package com.chessengine.engine;
 
 import com.chessengine.model.*;
 import java.util.*;
-import java.util.concurrent.*;
 
 /**
  * High-performance chess engine with minimax algorithm, alpha-beta pruning, and advanced optimizations.
@@ -21,9 +20,8 @@ public class ChessEngine {
     private long transpositionHits = 0;
     private long cutoffs = 0;
     
-    // Transposition table
-    private final Map<Long, TranspositionEntry> transpositionTable = new ConcurrentHashMap<>();
-    private static final int MAX_TT_SIZE = 1000000;
+    // Transposition table (fixed-size, Zobrist)
+    private final TranspositionTable tt = new TranspositionTable();
     
     // Move ordering
     private final MoveOrderer moveOrderer = new MoveOrderer();
@@ -51,7 +49,7 @@ public class ChessEngine {
         if (useIterativeDeepening) {
             bestMove = iterativeDeepening(board);
         } else {
-            SearchResult result = minimax(board, maxDepth, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
+            SearchResult result = minimax(board, maxDepth, Integer.MIN_VALUE + 1, Integer.MAX_VALUE, true, true);
             bestMove = result.bestMove;
         }
         
@@ -61,12 +59,18 @@ public class ChessEngine {
 
     private Move iterativeDeepening(Board board) {
         Move bestMove = Move.NULL_MOVE;
-        int bestScore = Integer.MIN_VALUE;
+        int bestScore = 0;
+        int aspirationWindow = 50;
         
         for (int depth = 1; depth <= maxDepth; depth++) {
             if (isTimeUp()) break;
-            
-            SearchResult result = minimax(board, depth, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
+            int alpha = Math.max(Integer.MIN_VALUE + 1, bestScore - aspirationWindow);
+            int beta = Math.min(Integer.MAX_VALUE, bestScore + aspirationWindow);
+            SearchResult result = minimax(board, depth, alpha, beta, true, true);
+            if (result.score <= alpha || result.score >= beta) {
+                // Aspiration failed, re-search full window
+                result = minimax(board, depth, Integer.MIN_VALUE + 1, Integer.MAX_VALUE, true, true);
+            }
             
             if (!searchCancelled && !result.bestMove.isNull()) {
                 bestMove = result.bestMove;
@@ -85,7 +89,7 @@ public class ChessEngine {
         return bestMove;
     }
 
-    private SearchResult minimax(Board board, int depth, int alpha, int beta, boolean maximizingPlayer) {
+    private SearchResult minimax(Board board, int depth, int alpha, int beta, boolean maximizingPlayer, boolean allowNullMove) {
         nodesSearched++;
         
         // Check time limit
@@ -94,17 +98,15 @@ public class ChessEngine {
             return new SearchResult(Move.NULL_MOVE, 0);
         }
         
-        // Check transposition table
-        long boardHash = getBoardHash(board);
-        if (useTranspositionTable && transpositionTable.containsKey(boardHash)) {
-            TranspositionEntry entry = transpositionTable.get(boardHash);
-            if (entry.depth >= depth) {
+        long key = Zobrist.hash(board);
+        // Probe TT
+        if (useTranspositionTable) {
+            TranspositionTable.Entry e = tt.probe(key);
+            if (e != null && e.depth >= depth) {
                 transpositionHits++;
-                if (entry.nodeType == TranspositionEntry.EXACT ||
-                    (entry.nodeType == TranspositionEntry.LOWER_BOUND && entry.score >= beta) ||
-                    (entry.nodeType == TranspositionEntry.UPPER_BOUND && entry.score <= alpha)) {
-                    return new SearchResult(entry.bestMove, entry.score);
-                }
+                if (e.flag == TranspositionTable.EXACT) return new SearchResult(e.move != null ? e.move : Move.NULL_MOVE, e.score);
+                if (e.flag == TranspositionTable.LOWER && e.score >= beta) return new SearchResult(e.move != null ? e.move : Move.NULL_MOVE, e.score);
+                if (e.flag == TranspositionTable.UPPER && e.score <= alpha) return new SearchResult(e.move != null ? e.move : Move.NULL_MOVE, e.score);
             }
         }
         
@@ -113,7 +115,7 @@ public class ChessEngine {
             int score = useQuiescenceSearch ? quiescenceSearch(board, alpha, beta, 4) : Evaluator.evaluate(board);
             return new SearchResult(Move.NULL_MOVE, score);
         }
-        
+
         // Check for game over
         List<Move> legalMoves = MoveGenerator.generateLegalMoves(board);
         if (legalMoves.isEmpty()) {
@@ -125,30 +127,70 @@ public class ChessEngine {
                 return new SearchResult(Move.NULL_MOVE, 0);
             }
         }
-        
+
+        // Null-move pruning
+        if (allowNullMove && depth >= 3 && !board.isInCheck(board.getSideToMove())) {
+            board.makeNullMove();
+            int R = 2; // reduction
+            int score = -minimax(board, depth - 1 - R, -beta, -beta + 1, !maximizingPlayer, false).score;
+            board.undoNullMove();
+            if (score >= beta) {
+                cutoffs++;
+                return new SearchResult(Move.NULL_MOVE, beta);
+            }
+        }
+
         // Order moves for better alpha-beta pruning
+        // TT move ordering: place TT best move first if available
+        if (useTranspositionTable) {
+            Move ttMove = tt.getBestMove(key);
+            if (ttMove != null) {
+                for (int i = 0; i < legalMoves.size(); i++) {
+                    if (legalMoves.get(i).equals(ttMove)) {
+                        Collections.swap(legalMoves, 0, i);
+                        break;
+                    }
+                }
+            }
+        }
         moveOrderer.orderMoves(legalMoves, board);
         
         Move bestMove = Move.NULL_MOVE;
         int bestScore = maximizingPlayer ? Integer.MIN_VALUE : Integer.MAX_VALUE;
         int originalAlpha = alpha;
         
+        int moveIndex = 0;
         for (Move move : legalMoves) {
             if (searchCancelled) break;
             
             board.makeMove(move);
-            SearchResult result = minimax(board, depth - 1, alpha, beta, !maximizingPlayer);
+            // PVS + LMR
+            int childDepth = depth - 1;
+            boolean isCapture = move.isCapture();
+            boolean doLMR = childDepth >= 3 && !isCapture && moveIndex > 3; // light LMR
+            int score;
+            if (moveIndex == 0) {
+                // Full window for PV move
+                score = -minimax(board, childDepth, -beta, -alpha, !maximizingPlayer, true).score;
+            } else {
+                int reducedDepth = doLMR ? childDepth - 1 : childDepth;
+                score = -minimax(board, reducedDepth, -alpha - 1, -alpha, !maximizingPlayer, true).score;
+                if (score > alpha) {
+                    // Re-search at full window
+                    score = -minimax(board, childDepth, -beta, -alpha, !maximizingPlayer, true).score;
+                }
+            }
             board.undoMove();
             
             if (maximizingPlayer) {
-                if (result.score > bestScore) {
-                    bestScore = result.score;
+                if (score > bestScore) {
+                    bestScore = score;
                     bestMove = move;
                 }
                 alpha = Math.max(alpha, bestScore);
             } else {
-                if (result.score < bestScore) {
-                    bestScore = result.score;
+                if (score < bestScore) {
+                    bestScore = score;
                     bestMove = move;
                 }
                 beta = Math.min(beta, bestScore);
@@ -159,20 +201,15 @@ public class ChessEngine {
                 cutoffs++;
                 break;
             }
+            moveIndex++;
         }
         
         // Store in transposition table
         if (useTranspositionTable && !searchCancelled) {
-            int nodeType;
-            if (bestScore <= originalAlpha) {
-                nodeType = TranspositionEntry.UPPER_BOUND;
-            } else if (bestScore >= beta) {
-                nodeType = TranspositionEntry.LOWER_BOUND;
-            } else {
-                nodeType = TranspositionEntry.EXACT;
-            }
-            
-            storeTransposition(boardHash, depth, bestScore, bestMove, nodeType);
+            int flag = TranspositionTable.EXACT;
+            if (bestScore <= originalAlpha) flag = TranspositionTable.UPPER;
+            else if (bestScore >= beta) flag = TranspositionTable.LOWER;
+            tt.store(key, depth, bestScore, flag, bestMove);
         }
         
         return new SearchResult(bestMove, bestScore);
@@ -218,19 +255,7 @@ public class ChessEngine {
         return alpha;
     }
 
-    private long getBoardHash(Board board) {
-        // Simple hash based on FEN string - in a real engine you'd use Zobrist hashing
-        return board.toFEN().hashCode();
-    }
-
-    private void storeTransposition(long hash, int depth, int score, Move bestMove, int nodeType) {
-        if (transpositionTable.size() >= MAX_TT_SIZE) {
-            // Simple replacement strategy - clear old entries
-            transpositionTable.clear();
-        }
-        
-        transpositionTable.put(hash, new TranspositionEntry(depth, score, bestMove, nodeType));
-    }
+    // Zobrist hashing now used directly via Zobrist.hash(board)
 
     private boolean isTimeUp() {
         return System.currentTimeMillis() - searchStartTime >= maxTimeMs;
@@ -275,9 +300,7 @@ public class ChessEngine {
         searchCancelled = true;
     }
 
-    public void clearTranspositionTable() {
-        transpositionTable.clear();
-    }
+    public void clearTranspositionTable() { tt.clear(); }
 
     public long getNodesSearched() {
         return nodesSearched;
@@ -291,24 +314,6 @@ public class ChessEngine {
         SearchResult(Move bestMove, int score) {
             this.bestMove = bestMove;
             this.score = score;
-        }
-    }
-
-    private static class TranspositionEntry {
-        static final int EXACT = 0;
-        static final int LOWER_BOUND = 1;
-        static final int UPPER_BOUND = 2;
-
-        final int depth;
-        final int score;
-        final Move bestMove;
-        final int nodeType;
-
-        TranspositionEntry(int depth, int score, Move bestMove, int nodeType) {
-            this.depth = depth;
-            this.score = score;
-            this.bestMove = bestMove;
-            this.nodeType = nodeType;
         }
     }
 }

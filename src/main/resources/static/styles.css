@@ -1,14 +1,20 @@
 * { box-sizing: border-box; }
 body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: radial-gradient(1200px 600px at 20% -10%, #1f2a44 0%, transparent 60%), #0b1020; color: #e2e8f0; }
 .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+header { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin-bottom: 16px; }
+.brand .tagline { opacity: .7; font-size: 12px; margin-top: 2px; }
 h1 { margin: 0; font-size: 22px; letter-spacing: 1px; font-weight: 800; }
 .logo {
   background: linear-gradient(90deg, #60a5fa, #a78bfa, #f472b6);
   -webkit-background-clip: text; background-clip: text; color: transparent;
   text-shadow: 0 0 18px rgba(96,165,250,0.2);
 }
-.controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.controls { display: grid; grid-auto-flow: column; gap: 14px; align-items: center; }
+.controls-left { display: flex; gap: 10px; align-items: center; }
+.controls-right { display: flex; gap: 10px; align-items: center; }
+.controls .field { display: grid; gap: 4px; font-size: 12px; color: #a3b1c6; }
+.controls .field > input, .controls .field > select { width: 110px; }
+.controls .check { display: inline-flex; align-items: center; gap: 6px; }
 .controls button { background: linear-gradient(180deg, #2563eb, #1d4ed8); color: white; border: 0; padding: 9px 13px; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 10px rgba(2,6,23,0.4); transition: transform .05s ease, box-shadow .2s ease; }
 .controls button:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(2,6,23,0.5); }
 .controls input, .controls select { width: 100px; padding: 7px 9px; border-radius: 8px; border: 1px solid #334155; background: #0b1220; color: #e2e8f0; }
@@ -37,6 +43,12 @@ main { display: grid; grid-template-columns: 520px 1fr; gap: 16px; }
 .panel h3 { margin: 0 0 8px; font-size: 16px; }
 .fen { background: #0f172a; color: #a5b4fc; padding: 8px; border-radius: 6px; overflow: auto; }
 .moves { white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+
+.footer { margin-top: 18px; padding: 14px 20px; border-top: 1px solid #243047; background: rgba(11,18,32,0.6); }
+.footer-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; color: #93a4bd; font-size: 13px; }
+.footer .links { display: inline-flex; gap: 8px; align-items: center; }
+.footer a { color: #a5b4fc; text-decoration: none; }
+.footer a:hover { text-decoration: underline; }
 
 @media (max-width: 960px) {
   main { grid-template-columns: 1fr; }

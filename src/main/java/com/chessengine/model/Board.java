@@ -385,6 +385,23 @@ public class Board {
         restoreState(previousState);
     }
 
+    // Null-move support for search (toggle side to move and clear en passant)
+    public void makeNullMove() {
+        history.push(new BoardState(this));
+        // Clear en passant as per rules when a non-pawn move happens
+        enPassantSquare = new Square(Square.INVALID);
+        // Increase halfmove clock (no pawn move or capture occurred)
+        halfMoveClock++;
+        // Do not change fullMoveNumber for null moves
+        sideToMove = sideToMove.opposite();
+    }
+
+    public void undoNullMove() {
+        if (history.isEmpty()) return;
+        BoardState previousState = history.pop();
+        restoreState(previousState);
+    }
+
     private void restoreState(BoardState state) {
         System.arraycopy(state.squares, 0, squares, 0, 64);
         sideToMove = state.sideToMove;
